@@ -74,98 +74,67 @@ signPow value exp =
            )
 
 
+type alias Metadata =
+    { sizeY : Int
+    , sizeX : Int
+    , maximumValue : Float
+    }
+
+
+decodeMetadata : Float -> String -> Metadata
+decodeMetadata punch s =
+    let
+        sizeInfo : Int
+        sizeInfo =
+            decodeBase83 (s |> String.slice 0 1)
+    in
+    { sizeX = (sizeInfo |> modBy 9) + 1
+    , sizeY = floor (toFloat sizeInfo / 9) + 1
+    , maximumValue =
+        decodeBase83 (s |> String.slice 1 2)
+            |> (\a -> (toFloat (a + 1) / 166) * punch)
+    }
+
+
+decodeAC : Float -> Int -> ( Float, Float, Float )
+decodeAC maximumValue value =
+    ( toFloat value / (19 * 19)
+    , toFloat value / 19 |> floor |> modBy 19 |> toFloat
+    , value |> modBy 19 |> toFloat
+    )
+        |> (\( a1, a2, a3 ) ->
+                ( signPow ((a1 - 9) / 9) 2 * maximumValue
+                , signPow ((a2 - 9) / 9) 2 * maximumValue
+                , signPow ((a3 - 9) / 9) 2 * maximumValue
+                )
+           )
+
+
 {-| Decodes given blurhash to an RGB image with specified dimensions
 
 Punch parameter can be used to increase/decrease contrast of the resulting image
 
 -}
 decode : Int -> Int -> Float -> String -> List ( Int, Int, Int )
-decode width height punch s =
+decode width height punch blurhash =
     let
-        -- Decode metadata
-        sizeInfo : Int
-        sizeInfo =
-            decodeBase83 (s |> String.slice 0 1)
-
-        sizeY : Int
-        sizeY =
-            floor (toFloat sizeInfo / 9) + 1
-
-        sizeX : Int
-        sizeX =
-            (sizeInfo |> modBy 9) + 1
-
-        quantMaxValue : Int
-        quantMaxValue =
-            decodeBase83 (s |> String.slice 1 2)
-
-        realMaxValue : Float
-        realMaxValue =
-            (toFloat (quantMaxValue + 1) / 166) * punch
-
-        -- Make sure we at least have the right number of characters
-        -- TODO: ignore? I mean, what's the worst that could happen?
-        --
-        -- Decode DC component
-        dcValue : Int
-        dcValue =
-            decodeBase83 (s |> String.slice 2 6)
-
-        colour : ( Float, Float, Float )
-        colour =
-            ( srgbToLinear (dcValue |> Bitwise.shiftRightBy 16)
-            , srgbToLinear (dcValue |> Bitwise.shiftRightBy 8 |> Bitwise.and 255)
-            , srgbToLinear (dcValue |> Bitwise.and 255)
-            )
-
-        -- Decode AC components
-        colours : List ( Float, Float, Float )
-        colours =
-            List.range 1 (sizeX * sizeY - 1)
-                |> List.map
-                    (\component ->
-                        let
-                            acValue : Int
-                            acValue =
-                                decodeBase83 (s |> String.slice (4 + component * 2) (4 + (component + 1) * 2))
-                        in
-                        ( signPow
-                            ((toFloat (floor (toFloat acValue / (19 * 19))) - 9) / 9)
-                            2
-                            * realMaxValue
-                        , signPow
-                            ((toFloat (floor (toFloat acValue / 19) |> modBy 19) - 9) / 9)
-                            2
-                            * realMaxValue
-                        , signPow
-                            ((toFloat (acValue |> modBy 19) - 9) / 9)
-                            2
-                            * realMaxValue
-                        )
-                    )
-                |> (::) colour
+        metadata : Metadata
+        metadata =
+            decodeMetadata punch blurhash
     in
     List.range 0 (height * width - 1)
         |> List.map
-            (\index ->
-                let
-                    x : Int
-                    x =
-                        index |> modBy width
-
-                    y : Int
-                    y =
-                        floor (toFloat index / toFloat width)
-                in
+            ((\( x, y ) ->
                 calcPixel
                     { x = x
                     , y = y
                     , width = width
                     , height = height
-                    , sizeX = sizeX
-                    , sizeY = sizeY
-                    , colours = colours
+                    , blurhash = blurhash
+                    , metadata = metadata
                     }
+             )
+                << (\a -> ( a |> modBy width, floor (toFloat a / toFloat width) ))
             )
 
 
@@ -174,43 +143,48 @@ calcPixel :
     , y : Int
     , width : Int
     , height : Int
-    , sizeX : Int
-    , sizeY : Int
-    , colours : List ( Float, Float, Float )
+    , blurhash : String
+    , metadata : Metadata
     }
     -> ( Int, Int, Int )
-calcPixel { x, y, width, height, sizeX, sizeY, colours } =
-    List.range 0 (sizeX * sizeY - 1)
-        |> List.foldr
-            (\index ( pixel0, pixel1, pixel2 ) ->
-                let
-                    i : Int
-                    i =
-                        index |> modBy sizeX
+calcPixel { x, y, width, height, blurhash, metadata } =
+    List.foldr
+        (\index ( pixel0, pixel1, pixel2 ) ->
+            let
+                ( i, j ) =
+                    ( index |> modBy metadata.sizeX
+                    , floor (toFloat index / toFloat metadata.sizeX)
+                    )
 
-                    j : Int
-                    j =
-                        floor (toFloat index / toFloat sizeX)
+                basis : Float
+                basis =
+                    cos (pi * toFloat x * toFloat i / toFloat width)
+                        * cos (pi * toFloat y * toFloat j / toFloat height)
 
-                    basis : Float
-                    basis =
-                        cos (pi * toFloat x * toFloat i / toFloat width)
-                            * cos (pi * toFloat y * toFloat j / toFloat height)
-
-                    -- TODO: figure out if I need the colours list
-                    ( colour0, colour1, colour2 ) =
-                        List.Extra.getAt (i + j * sizeX) colours
-                            |> Maybe.withDefault ( 0, 0, 0 )
-                in
-                ( pixel0 + colour0 * basis
-                , pixel1 + colour1 * basis
-                , pixel2 + colour2 * basis
-                )
+                ( colour0, colour1, colour2 ) =
+                    getColour blurhash metadata (i + j * metadata.sizeX)
+            in
+            ( pixel0 + colour0 * basis
+            , pixel1 + colour1 * basis
+            , pixel2 + colour2 * basis
             )
-            ( 0, 0, 0 )
-        |> (\( a, b, c ) ->
-                ( linearToSrgb a
-                , linearToSrgb b
-                , linearToSrgb c
-                )
-           )
+        )
+        ( 0, 0, 0 )
+        (List.range 0 (metadata.sizeX * metadata.sizeY - 1))
+        |> (\( a, b, c ) -> ( linearToSrgb a, linearToSrgb b, linearToSrgb c ))
+
+
+getColour : String -> { a | maximumValue : Float } -> Int -> ( Float, Float, Float )
+getColour blurHash { maximumValue } i =
+    if i == 0 then
+        decodeBase83 (blurHash |> String.slice 2 6)
+            |> (\a ->
+                    ( srgbToLinear (a |> Bitwise.shiftRightBy 16)
+                    , srgbToLinear (a |> Bitwise.shiftRightBy 8 |> Bitwise.and 255)
+                    , srgbToLinear (a |> Bitwise.and 255)
+                    )
+               )
+
+    else
+        decodeBase83 (blurHash |> String.slice (4 + i * 2) (4 + (i + 1) * 2))
+            |> decodeAC maximumValue

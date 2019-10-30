@@ -26,9 +26,9 @@ view : Html Never
 view =
     let
         pngEncodeBase64 =
-            Blurhash.decode 300 300 1.0 "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
+            Blurhash.decode 30 30 1.0 "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
                 |> List.map rgbToInt
-                |> Image.fromList 300
+                |> Image.fromList 30
                 |> Image.encodePng
                 |> Base64.fromBytes
                 |> Maybe.withDefault ""
