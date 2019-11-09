@@ -22,56 +22,58 @@ base83chars =
 -}
 decodeBase83 : String -> Int
 decodeBase83 =
-    List.foldl
-        (\a acc ->
+    let
+        folder a acc =
             Dict.get a base83chars
                 |> Maybe.map ((+) (acc * 83))
                 |> Maybe.withDefault acc
-        )
-        0
-        << String.toList
+    in
+    String.foldl folder 0
 
 
 {-| srgb 0-255 integer to linear 0.0-1.0 floating point conversion.
 -}
 srgbToLinear : Int -> Float
 srgbToLinear srgbInt =
-    (toFloat srgbInt / 255)
-        |> (\a ->
-                if a <= 0.04045 then
-                    a / 12.92
+    let
+        a =
+            toFloat srgbInt / 255
+    in
+    if a <= 0.04045 then
+        a / 12.92
 
-                else
-                    ((a + 0.055) / 1.055) ^ 2.4
-           )
+    else
+        ((a + 0.055) / 1.055) ^ 2.4
 
 
 {-| linear 0.0-1.0 floating point to srgb 0-255 integer conversion.
 -}
 linearToSrgb : Float -> Int
 linearToSrgb linearFloat =
-    clamp 0 1 linearFloat
-        |> (\a ->
-                if a <= 0.0031308 then
-                    floor (a * 12.92 * 255 + 0.5)
+    let
+        a =
+            clamp 0 1 linearFloat
+    in
+    if a <= 0.0031308 then
+        floor (a * 12.92 * 255 + 0.5)
 
-                else
-                    floor ((1.055 * (a ^ (1 / 2.4)) - 0.055) * 255 + 0.5)
-           )
+    else
+        floor ((1.055 * (a ^ (1 / 2.4)) - 0.055) * 255 + 0.5)
 
 
 {-| Sign-preserving exponentiation.
 -}
 signPow : number -> number -> number
 signPow value exp =
-    (value ^ exp)
-        |> (\a ->
-                if value < 0 then
-                    a * -1
+    let
+        a =
+            value ^ exp
+    in
+    if value < 0 then
+        a * -1
 
-                else
-                    a
-           )
+    else
+        a
 
 
 type alias Metadata =
@@ -98,16 +100,17 @@ decodeMetadata punch s =
 
 decodeAC : Float -> Int -> ( Float, Float, Float )
 decodeAC maximumValue value =
-    ( toFloat value / (19 * 19)
-    , toFloat value / 19 |> floor |> modBy 19 |> toFloat
-    , value |> modBy 19 |> toFloat
+    let
+        ( a1, a2, a3 ) =
+            ( toFloat value / (19 * 19)
+            , toFloat value / 19 |> floor |> modBy 19 |> toFloat
+            , value |> modBy 19 |> toFloat
+            )
+    in
+    ( signPow ((a1 - 9) / 9) 2 * maximumValue
+    , signPow ((a2 - 9) / 9) 2 * maximumValue
+    , signPow ((a3 - 9) / 9) 2 * maximumValue
     )
-        |> (\( a1, a2, a3 ) ->
-                ( signPow ((a1 - 9) / 9) 2 * maximumValue
-                , signPow ((a2 - 9) / 9) 2 * maximumValue
-                , signPow ((a3 - 9) / 9) 2 * maximumValue
-                )
-           )
 
 
 {-| Decodes given blurhash to an RGB image with specified dimensions
