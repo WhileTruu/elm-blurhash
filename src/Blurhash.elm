@@ -1,6 +1,7 @@
 module Blurhash exposing (decode)
 
 import Bitwise
+import CellGrid exposing (Dimensions)
 import Dict exposing (Dict)
 import List.Extra
 
@@ -125,20 +126,22 @@ decode width height punch blurhash =
         metadata =
             decodeMetadata punch blurhash
     in
-    List.range 0 (height * width - 1)
-        |> List.map
-            ((\( x, y ) ->
-                calcPixel
-                    { x = x
-                    , y = y
-                    , width = width
-                    , height = height
-                    , blurhash = blurhash
-                    , metadata = metadata
-                    }
-             )
-                << (\a -> ( a |> modBy width, floor (toFloat a / toFloat width) ))
-            )
+    CellGrid.initialize (Dimensions height width)
+        (initializer { width = width, height = height, metadata = metadata, blurhash = blurhash })
+        |> CellGrid.foldr (::) []
+
+
+initializer : { width : Int, height : Int, blurhash : String, metadata : Metadata } -> Int -> Int -> ( Int, Int, Int )
+initializer { width, height, blurhash, metadata } y x =
+    -- Note swapping of the axes: the `y` argument is the row, `x` the column
+    calcPixel
+        { x = x
+        , y = y
+        , width = width
+        , height = height
+        , blurhash = blurhash
+        , metadata = metadata
+        }
 
 
 calcPixel :
