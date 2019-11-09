@@ -2,8 +2,8 @@ module Blurhash exposing (decode)
 
 import Bitwise
 import CellGrid exposing (Dimensions)
+import Color exposing (Color)
 import Dict exposing (Dict)
-import List.Extra
 
 
 {-| Blurhash decoder.
@@ -119,19 +119,22 @@ decodeAC maximumValue value =
 Punch parameter can be used to increase/decrease contrast of the resulting image
 
 -}
-decode : Int -> Int -> Float -> String -> List ( Int, Int, Int )
+decode : Int -> Int -> Float -> String -> List Color
 decode width height punch blurhash =
     let
         metadata : Metadata
         metadata =
             decodeMetadata punch blurhash
+
+        _ =
+            Debug.log "test" (List.reverse (foldDimensions (Dimensions metadata.sizeY metadata.sizeX) (\row column accum -> ( row, column ) :: accum) []))
     in
     CellGrid.initialize (Dimensions height width)
         (initializer { width = width, height = height, metadata = metadata, blurhash = blurhash })
         |> CellGrid.foldr (::) []
 
 
-initializer : { width : Int, height : Int, blurhash : String, metadata : Metadata } -> Int -> Int -> ( Int, Int, Int )
+initializer : { width : Int, height : Int, blurhash : String, metadata : Metadata } -> Int -> Int -> Color
 initializer { width, height, blurhash, metadata } y x =
     -- Note swapping of the axes: the `y` argument is the row, `x` the column
     calcPixel
@@ -152,16 +155,11 @@ calcPixel :
     , blurhash : String
     , metadata : Metadata
     }
-    -> ( Int, Int, Int )
+    -> Color
 calcPixel { x, y, width, height, blurhash, metadata } =
-    List.foldr
-        (\index ( pixel0, pixel1, pixel2 ) ->
+    foldDimensions (Dimensions metadata.sizeY metadata.sizeX)
+        (\j i ( pixel0, pixel1, pixel2 ) ->
             let
-                ( i, j ) =
-                    ( index |> modBy metadata.sizeX
-                    , floor (toFloat index / toFloat metadata.sizeX)
-                    )
-
                 basis : Float
                 basis =
                     cos (pi * toFloat x * toFloat i / toFloat width)
@@ -176,8 +174,8 @@ calcPixel { x, y, width, height, blurhash, metadata } =
             )
         )
         ( 0, 0, 0 )
-        (List.range 0 (metadata.sizeX * metadata.sizeY - 1))
         |> (\( a, b, c ) -> ( linearToSrgb a, linearToSrgb b, linearToSrgb c ))
+        |> (\( a, b, c ) -> Color.rgb255 a b c)
 
 
 getColour : String -> { a | maximumValue : Float } -> Int -> ( Float, Float, Float )
@@ -194,3 +192,19 @@ getColour blurHash { maximumValue } i =
     else
         decodeBase83 (blurHash |> String.slice (4 + i * 2) (4 + (i + 1) * 2))
             |> decodeAC maximumValue
+
+
+foldDimensions : Dimensions -> (Int -> Int -> a -> a) -> a -> a
+foldDimensions { rows, columns } folder default =
+    let
+        go row column accum =
+            if column < columns - 1 then
+                go row (column + 1) (folder row column accum)
+
+            else if row < rows - 1 then
+                go (row + 1) 0 (folder row column accum)
+
+            else
+                folder row column accum
+    in
+    go 0 0 default
