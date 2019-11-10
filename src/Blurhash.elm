@@ -1,35 +1,251 @@
-module Blurhash exposing (decode)
+module Blurhash exposing (toUri)
 
+{-| Display blur hashes in elm
+
+    import Blurhash
+    import Html exposing (Html)
+    import Html.Attributes
+
+    main : Html msg
+    main =
+        let
+            uri =
+                Blurhash.toUri { width = 30, height = 30 }
+                    1.0
+                    "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
+        in
+        Html.img
+            [ Html.Attributes.style "width" "400px"
+            , Html.Attributes.src uri
+            ]
+            []
+
+@docs toUri
+
+-}
+
+import Base64
 import Bitwise
-import CellGrid exposing (Dimensions)
 import Color exposing (Color)
 import Dict exposing (Dict)
+import Image
+import Image.Color
 
 
-{-| Blurhash decoder.
+type alias Dimensions =
+    { rows : Int
+    , columns : Int
+    }
 
-@docs decode
+
+type Triplet a
+    = Triplet a a a
+
+
+{-| Convert a blurhash into an image URI.
+
+The float parameter is the `punch`, used to increase/decrease contrast of the resulting image
+
+    punch : Float
+    punch =
+        0.9
+
+    hash : String
+    hash =
+        "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
+
+    Blurhash.toUri { width = 4, height = 4 } punch hash
+    --> "data:image/bmp;base64,Qk2KAAAAAAAAAHoAAABsAAAAAgAAAAIAAAABACAAAwAAABAAAAATCwAAEwsAAAAAAAAAAAAAAAAA/wAA/wAA/wAA/wAAAFdpbiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/XY3A/z9+w/9djcD/P37D"
 
 -}
+toUri : { width : Int, height : Int } -> Float -> String -> String
+toUri { width, height } punch blurhash =
+    foldGrid width height punch blurhash folderList2d { row = [], rows = [] }
+        |> .rows
+        |> Image.Color.fromList2d
+        |> Image.encodeBmp
+        |> Base64.fromBytes
+        |> Maybe.withDefault ""
+        |> (\uri -> "data:image/bmp;base64," ++ uri)
+
+
+
+-- Phase 1: decode metadata
+
+
+{-| Create a list from the image represented by a blurhash
+
+This type is generic so we can generate both a flat list and a 2D list by picking a different folder and default.
+
+-}
+foldGrid : Int -> Int -> Float -> String -> ((Int -> Int -> Color) -> Int -> Int -> b -> b) -> b -> b
+foldGrid width height punch blurhash folder default =
+    let
+        sizeInfo : Int
+        sizeInfo =
+            decodeBase83 (String.slice 0 1 blurhash)
+
+        maximumValue : Float
+        maximumValue =
+            let
+                a =
+                    decodeBase83 (String.slice 1 2 blurhash)
+            in
+            (toFloat (a + 1) / 166) * punch
+
+        dimensions : Dimensions
+        dimensions =
+            Dimensions height width
+
+        filter : Dimensions
+        filter =
+            Dimensions ((sizeInfo // 9) + 1) ((sizeInfo |> modBy 9) + 1)
+
+        lookup : Int -> Triplet Float
+        lookup =
+            buildDict { rows = height, columns = width } maximumValue blurhash
+
+        toValue : Int -> Int -> Color
+        toValue row column =
+            calcPixel column row width height filter lookup
+    in
+    foldDimensionsReversed dimensions (folder toValue) default
+
+
+
+-- Phase 2: decoding the blur hash into a function `Int -> Triplet Float`
+
+
 base83chars : Dict Char Int
 base83chars =
+    let
+        folder char { index, dict } =
+            { index = index + 1
+            , dict = Dict.insert char index dict
+            }
+    in
     "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~"
-        |> String.toList
-        |> List.indexedMap (\i char -> ( char, i ))
-        |> Dict.fromList
+        |> String.foldl folder { index = 0, dict = Dict.empty }
+        |> .dict
 
 
-{-| Decodes a base83 string, as used in blurhash, to an integer.
+{-| Decode a base83 string, as used in blurhash, to an integer.
 -}
 decodeBase83 : String -> Int
-decodeBase83 =
+decodeBase83 str =
     let
         folder a acc =
-            Dict.get a base83chars
-                |> Maybe.map ((+) (acc * 83))
-                |> Maybe.withDefault acc
+            case Dict.get a base83chars of
+                Just v ->
+                    v + acc * 83
+
+                Nothing ->
+                    acc
     in
-    String.foldl folder 0
+    String.foldl folder 0 str
+
+
+{-| Sign-preserving exponentiation.
+-}
+signPow : number -> number -> number
+signPow value exp =
+    if value < 0 then
+        -(value ^ exp)
+
+    else
+        value ^ exp
+
+
+decodeAC : Float -> Int -> Triplet Float
+decodeAC maximumValue value =
+    let
+        a1 =
+            toFloat value / (19 * 19)
+
+        a2 =
+            value // 19 |> modBy 19 |> toFloat
+
+        a3 =
+            value |> modBy 19 |> toFloat
+    in
+    Triplet
+        (signPow ((a1 - 9) / 9) 2 * maximumValue)
+        (signPow ((a2 - 9) / 9) 2 * maximumValue)
+        (signPow ((a3 - 9) / 9) 2 * maximumValue)
+
+
+buildDict : Dimensions -> Float -> String -> (Int -> Triplet Float)
+buildDict dimensions maximumValue blurhash =
+    let
+        cache : Dict Int (Triplet Float)
+        cache =
+            foldDimensions dimensions
+                (\row column dict ->
+                    case row * dimensions.columns + column of
+                        0 ->
+                            let
+                                bits =
+                                    decodeBase83 (String.slice 2 6 blurhash)
+
+                                value =
+                                    Triplet
+                                        (srgbToLinear (bits |> Bitwise.shiftRightBy 16))
+                                        (srgbToLinear (bits |> Bitwise.shiftRightBy 8 |> Bitwise.and 255))
+                                        (srgbToLinear (bits |> Bitwise.and 255))
+                            in
+                            Dict.insert 0 value dict
+
+                        i ->
+                            let
+                                key =
+                                    String.slice (4 + i * 2) (4 + (i + 1) * 2) blurhash
+                            in
+                            Dict.insert i (decodeAC maximumValue (decodeBase83 key)) dict
+                )
+                Dict.empty
+    in
+    -- creating a new function with one argument here make sure that the
+    -- cache is only created once, then re-used for all subsequent calls.
+    -- this works because we partially apply all arguments needed above.
+    \index ->
+        case Dict.get index cache of
+            Just v ->
+                v
+
+            Nothing ->
+                Triplet 0 0 0
+
+
+
+-- Phase 3: determine the color at a position
+
+
+calcPixel : Int -> Int -> Int -> Int -> Dimensions -> (Int -> Triplet Float) -> Color
+calcPixel x y width height filter lookup =
+    let
+        folder row column (Triplet pixel0 pixel1 pixel2) =
+            let
+                basis : Float
+                basis =
+                    cos (pi * toFloat x * toFloat column / toFloat width)
+                        * cos (pi * toFloat y * toFloat row / toFloat height)
+
+                (Triplet colour0 colour1 colour2) =
+                    lookup (row * filter.columns + column)
+            in
+            Triplet
+                (pixel0 + colour0 * basis)
+                (pixel1 + colour1 * basis)
+                (pixel2 + colour2 * basis)
+
+        (Triplet r g b) =
+            foldDimensions filter folder (Triplet 0 0 0)
+    in
+    Color.rgb255 (linearToSrgb r) (linearToSrgb g) (linearToSrgb b)
+
+
+
+-- Color conversion
 
 
 {-| srgb 0-255 integer to linear 0.0-1.0 floating point conversion.
@@ -62,138 +278,17 @@ linearToSrgb linearFloat =
         floor ((1.055 * (a ^ (1 / 2.4)) - 0.055) * 255 + 0.5)
 
 
-{-| Sign-preserving exponentiation.
--}
-signPow : number -> number -> number
-signPow value exp =
-    let
-        a =
-            value ^ exp
-    in
-    if value < 0 then
-        a * -1
 
-    else
-        a
+-- Efficient folding over all positions in a grid
 
 
-type alias Metadata =
-    { sizeY : Int
-    , sizeX : Int
-    , maximumValue : Float
-    }
-
-
-decodeMetadata : Float -> String -> Metadata
-decodeMetadata punch s =
-    let
-        sizeInfo : Int
-        sizeInfo =
-            decodeBase83 (s |> String.slice 0 1)
-    in
-    { sizeX = (sizeInfo |> modBy 9) + 1
-    , sizeY = floor (toFloat sizeInfo / 9) + 1
-    , maximumValue =
-        decodeBase83 (s |> String.slice 1 2)
-            |> (\a -> (toFloat (a + 1) / 166) * punch)
-    }
-
-
-decodeAC : Float -> Int -> ( Float, Float, Float )
-decodeAC maximumValue value =
-    let
-        ( a1, a2, a3 ) =
-            ( toFloat value / (19 * 19)
-            , toFloat value / 19 |> floor |> modBy 19 |> toFloat
-            , value |> modBy 19 |> toFloat
-            )
-    in
-    ( signPow ((a1 - 9) / 9) 2 * maximumValue
-    , signPow ((a2 - 9) / 9) 2 * maximumValue
-    , signPow ((a3 - 9) / 9) 2 * maximumValue
-    )
-
-
-{-| Decodes given blurhash to an RGB image with specified dimensions
-
-Punch parameter can be used to increase/decrease contrast of the resulting image
-
--}
 decode : Int -> Int -> Float -> String -> List Color
 decode width height punch blurhash =
-    let
-        metadata : Metadata
-        metadata =
-            decodeMetadata punch blurhash
-
-        _ =
-            Debug.log "test" (List.reverse (foldDimensions (Dimensions metadata.sizeY metadata.sizeX) (\row column accum -> ( row, column ) :: accum) []))
-    in
-    CellGrid.initialize (Dimensions height width)
-        (initializer { width = width, height = height, metadata = metadata, blurhash = blurhash })
-        |> CellGrid.foldr (::) []
+    foldGrid width height punch blurhash folderList1d []
 
 
-initializer : { width : Int, height : Int, blurhash : String, metadata : Metadata } -> Int -> Int -> Color
-initializer { width, height, blurhash, metadata } y x =
-    -- Note swapping of the axes: the `y` argument is the row, `x` the column
-    calcPixel
-        { x = x
-        , y = y
-        , width = width
-        , height = height
-        , blurhash = blurhash
-        , metadata = metadata
-        }
-
-
-calcPixel :
-    { x : Int
-    , y : Int
-    , width : Int
-    , height : Int
-    , blurhash : String
-    , metadata : Metadata
-    }
-    -> Color
-calcPixel { x, y, width, height, blurhash, metadata } =
-    foldDimensions (Dimensions metadata.sizeY metadata.sizeX)
-        (\j i ( pixel0, pixel1, pixel2 ) ->
-            let
-                basis : Float
-                basis =
-                    cos (pi * toFloat x * toFloat i / toFloat width)
-                        * cos (pi * toFloat y * toFloat j / toFloat height)
-
-                ( colour0, colour1, colour2 ) =
-                    getColour blurhash metadata (i + j * metadata.sizeX)
-            in
-            ( pixel0 + colour0 * basis
-            , pixel1 + colour1 * basis
-            , pixel2 + colour2 * basis
-            )
-        )
-        ( 0, 0, 0 )
-        |> (\( a, b, c ) -> ( linearToSrgb a, linearToSrgb b, linearToSrgb c ))
-        |> (\( a, b, c ) -> Color.rgb255 a b c)
-
-
-getColour : String -> { a | maximumValue : Float } -> Int -> ( Float, Float, Float )
-getColour blurHash { maximumValue } i =
-    if i == 0 then
-        decodeBase83 (blurHash |> String.slice 2 6)
-            |> (\a ->
-                    ( srgbToLinear (a |> Bitwise.shiftRightBy 16)
-                    , srgbToLinear (a |> Bitwise.shiftRightBy 8 |> Bitwise.and 255)
-                    , srgbToLinear (a |> Bitwise.and 255)
-                    )
-               )
-
-    else
-        decodeBase83 (blurHash |> String.slice (4 + i * 2) (4 + (i + 1) * 2))
-            |> decodeAC maximumValue
-
-
+{-| Fold from the top-left to the bottom-right. Useful for building up arrays
+-}
 foldDimensions : Dimensions -> (Int -> Int -> a -> a) -> a -> a
 foldDimensions { rows, columns } folder default =
     let
@@ -208,3 +303,44 @@ foldDimensions { rows, columns } folder default =
                 folder row column accum
     in
     go 0 0 default
+
+
+{-| Fold from the bottom-right to the top-left Useful for building up lists
+-}
+foldDimensionsReversed : Dimensions -> (Int -> Int -> a -> a) -> a -> a
+foldDimensionsReversed { rows, columns } folder default =
+    let
+        go row column accum =
+            if column > 0 then
+                go row (column - 1) (folder row column accum)
+
+            else if row > 0 then
+                go (row - 1) (columns - 1) (folder row column accum)
+
+            else
+                folder row column accum
+    in
+    go (rows - 1) (columns - 1) default
+
+
+{-| Build up a flat list
+-}
+folderList1d : (Int -> Int -> a) -> Int -> Int -> List a -> List a
+folderList1d toValue row column accum =
+    toValue row column :: accum
+
+
+{-| Build up a 2D list
+-}
+folderList2d : (Int -> Int -> a) -> Int -> Int -> { row : List a, rows : List (List a) } -> { row : List a, rows : List (List a) }
+folderList2d toValue row column r =
+    let
+        value =
+            toValue row column
+    in
+    case column of
+        0 ->
+            { row = [], rows = (value :: r.row) :: r.rows }
+
+        _ ->
+            { row = value :: r.row, rows = r.rows }
