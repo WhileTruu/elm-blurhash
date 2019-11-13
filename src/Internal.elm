@@ -1,7 +1,8 @@
-module Blurhash exposing
+module Internal exposing
     ( toUri
     , toCellGrid
-    , encode, encodeBase83
+    , encode, encodeCellGrid, encodeHelp
+    , encodeBase83, decodeBase83
     )
 
 {-| Display blur hashes in elm
@@ -26,7 +27,8 @@ module Blurhash exposing
 
 @docs toUri
 @docs toCellGrid
-@docs encode, encodeBase83
+@docs encode, encodeCellGrid, encodeHelp
+@docs encodeBase83, decodeBase83
 
 -}
 
@@ -422,6 +424,11 @@ encode maskSize image =
 
         _ ->
             ""
+
+
+encodeCellGrid : { width : Int, height : Int } -> CellGrid Color -> String
+encodeCellGrid mask grid =
+    encodeHelp mask False grid
 
 
 encodeHelp : { width : Int, height : Int } -> Bool -> CellGrid Color -> String
