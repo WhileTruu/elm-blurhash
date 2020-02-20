@@ -33,7 +33,6 @@ module Internal exposing
 -}
 
 import Array
-import Base64
 import Bitwise
 import CellGrid exposing (CellGrid, Position)
 import Color exposing (Color)
@@ -73,10 +72,7 @@ toUri { width, height } punch blurhash =
     foldGrid width height punch blurhash folderList2d { row = [], rows = [] }
         |> .rows
         |> Image.Color.fromList2d
-        |> Image.encodeBmp
-        |> Base64.fromBytes
-        |> Maybe.withDefault ""
-        |> (\uri -> "data:image/bmp;base64," ++ uri)
+        |> Image.toBmpUrl
 
 
 {-| Helper for testing
