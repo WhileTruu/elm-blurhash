@@ -1,41 +1,20 @@
 module Main exposing (main)
 
-import Base64
-import Bitwise
 import Blurhash
-import Browser exposing (Document)
-import Html as H exposing (Html)
-import Html.Attributes as HA
-import Image exposing (Image)
+import Html exposing (Html)
+import Html.Attributes
 
 
-main : Platform.Program () () Never
+main : Html msg
 main =
-    Browser.sandbox
-        { init = ()
-        , update = \_ _ -> ()
-        , view = \_ -> view
-        }
-
-
-
--- VIEW
-
-
-view : Html Never
-view =
     let
-        pngEncodeBase64 =
-            Blurhash.decode 30 30 1.0 "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
-                |> List.map rgbToInt
-                |> Image.fromList 30
-                |> Image.encodePng
-                |> Base64.fromBytes
-                |> Maybe.withDefault ""
+        uri =
+            Blurhash.toUri { width = 30, height = 30 }
+                1.0
+                "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
     in
-    H.img [ HA.style "width" "400px", HA.src ("data:image/png;base64," ++ pngEncodeBase64) ] []
-
-
-rgbToInt : ( Int, Int, Int ) -> Int
-rgbToInt ( r, g, b ) =
-    Bitwise.shiftLeftBy 24 r + Bitwise.shiftLeftBy 16 g + Bitwise.shiftLeftBy 8 b + 255
+    Html.img
+        [ Html.Attributes.style "width" "400px"
+        , Html.Attributes.src uri
+        ]
+        []

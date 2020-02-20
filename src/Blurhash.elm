@@ -1,190 +1,109 @@
-module Blurhash exposing (decode)
+module Blurhash exposing
+    ( toUri
+    , fromImage, fromPixels
+    , encodeBase83, decodeBase83
+    )
 
-import Bitwise
-import Dict exposing (Dict)
-import List.Extra
+{-| Display blur hashes in elm
+
+@docs toUri
 
 
-{-| Blurhash decoder.
+## Encoding
 
-@docs decode
+Create a blurhash from an image. Unlikely this is useful, but here it is.
+
+@docs fromImage, fromPixels
+
+
+## Base83
+
+@docs encodeBase83, decodeBase83
 
 -}
-base83chars : Dict Char Int
-base83chars =
-    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~"
-        |> String.toList
-        |> List.indexedMap (\i char -> ( char, i ))
-        |> Dict.fromList
+
+import Array
+import CellGrid exposing (CellGrid)
+import Color exposing (Color)
+import Image
+import Internal
 
 
-{-| Decodes a base83 string, as used in blurhash, to an integer.
+{-| Convert a blurhash into an image URI. The float parameter is the `punch`, used to increase/decrease contrast of the resulting image
+
+    punch : Float
+    punch =
+        0.9
+
+    hash : String
+    hash =
+        "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
+
+    Blurhash.toUri { width = 4, height = 4 } punch hash
+    -->  "data:image/bmp;base64,Qk26AAAAAAAAAHoAAABsAAAABAAAAAQAAAABACAAAwAAAEAAAAATCwAAEwsAAAAAAAAAAAAAAAAA/wAA/wAA/wAA/wAAAFdpbiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/WovA/0F+wv87fs3/UIXI/12Lxf85eMH/Q4DT/1iK0f9djrr/TYGy/0Z/uf9RhMD/UYWu/1OHr/9Bfqn/T4Gv"
+
+"
+
+-}
+toUri : { width : Int, height : Int } -> Float -> String -> String
+toUri =
+    Internal.toUri
+
+
+{-| Decode a base83 string
+
+    decodeBase83 "X"
+        --> 33
+
+    decodeBase83 "foo"
+        --> 286649
+
 -}
 decodeBase83 : String -> Int
 decodeBase83 =
-    List.foldl
-        (\a acc ->
-            Dict.get a base83chars
-                |> Maybe.map ((+) (acc * 83))
-                |> Maybe.withDefault acc
-        )
-        0
-        << String.toList
+    Internal.decodeBase83
 
 
-{-| srgb 0-255 integer to linear 0.0-1.0 floating point conversion.
--}
-srgbToLinear : Int -> Float
-srgbToLinear srgbInt =
-    (toFloat srgbInt / 255)
-        |> (\a ->
-                if a <= 0.04045 then
-                    a / 12.92
+{-| encode an integer in base 83, the second parameter is the width: the number will be padded with 0's on the left untill that length is reached.
 
-                else
-                    ((a + 0.055) / 1.055) ^ 2.4
-           )
+    encodeBase83 { padTo = 2 } 4
+        --> "04"
 
+    encodeBase83 { padTo = 4 } 4
+        --> "0004"
 
-{-| linear 0.0-1.0 floating point to srgb 0-255 integer conversion.
--}
-linearToSrgb : Float -> Int
-linearToSrgb linearFloat =
-    clamp 0 1 linearFloat
-        |> (\a ->
-                if a <= 0.0031308 then
-                    floor (a * 12.92 * 255 + 0.5)
-
-                else
-                    floor ((1.055 * (a ^ (1 / 2.4)) - 0.055) * 255 + 0.5)
-           )
-
-
-{-| Sign-preserving exponentiation.
--}
-signPow : number -> number -> number
-signPow value exp =
-    (value ^ exp)
-        |> (\a ->
-                if value < 0 then
-                    a * -1
-
-                else
-                    a
-           )
-
-
-type alias Metadata =
-    { sizeY : Int
-    , sizeX : Int
-    , maximumValue : Float
-    }
-
-
-decodeMetadata : Float -> String -> Metadata
-decodeMetadata punch s =
-    let
-        sizeInfo : Int
-        sizeInfo =
-            decodeBase83 (s |> String.slice 0 1)
-    in
-    { sizeX = (sizeInfo |> modBy 9) + 1
-    , sizeY = floor (toFloat sizeInfo / 9) + 1
-    , maximumValue =
-        decodeBase83 (s |> String.slice 1 2)
-            |> (\a -> (toFloat (a + 1) / 166) * punch)
-    }
-
-
-decodeAC : Float -> Int -> ( Float, Float, Float )
-decodeAC maximumValue value =
-    ( toFloat value / (19 * 19)
-    , toFloat value / 19 |> floor |> modBy 19 |> toFloat
-    , value |> modBy 19 |> toFloat
-    )
-        |> (\( a1, a2, a3 ) ->
-                ( signPow ((a1 - 9) / 9) 2 * maximumValue
-                , signPow ((a2 - 9) / 9) 2 * maximumValue
-                , signPow ((a3 - 9) / 9) 2 * maximumValue
-                )
-           )
-
-
-{-| Decodes given blurhash to an RGB image with specified dimensions
-
-Punch parameter can be used to increase/decrease contrast of the resulting image
+    encodeBase83 { padTo = 4 } 420
+        --> "0055"
 
 -}
-decode : Int -> Int -> Float -> String -> List ( Int, Int, Int )
-decode width height punch blurhash =
-    let
-        metadata : Metadata
-        metadata =
-            decodeMetadata punch blurhash
-    in
-    List.range 0 (height * width - 1)
-        |> List.map
-            ((\( x, y ) ->
-                calcPixel
-                    { x = x
-                    , y = y
-                    , width = width
-                    , height = height
-                    , blurhash = blurhash
-                    , metadata = metadata
-                    }
-             )
-                << (\a -> ( a |> modBy width, floor (toFloat a / toFloat width) ))
-            )
+encodeBase83 : { padTo : Int } -> Int -> String
+encodeBase83 { padTo } value =
+    Internal.encodeBase83 value padTo
 
 
-calcPixel :
-    { x : Int
-    , y : Int
-    , width : Int
-    , height : Int
-    , blurhash : String
-    , metadata : Metadata
-    }
-    -> ( Int, Int, Int )
-calcPixel { x, y, width, height, blurhash, metadata } =
-    List.foldr
-        (\index ( pixel0, pixel1, pixel2 ) ->
-            let
-                ( i, j ) =
-                    ( index |> modBy metadata.sizeX
-                    , floor (toFloat index / toFloat metadata.sizeX)
-                    )
-
-                basis : Float
-                basis =
-                    cos (pi * toFloat x * toFloat i / toFloat width)
-                        * cos (pi * toFloat y * toFloat j / toFloat height)
-
-                ( colour0, colour1, colour2 ) =
-                    getColour blurhash metadata (i + j * metadata.sizeX)
-            in
-            ( pixel0 + colour0 * basis
-            , pixel1 + colour1 * basis
-            , pixel2 + colour2 * basis
-            )
-        )
-        ( 0, 0, 0 )
-        (List.range 0 (metadata.sizeX * metadata.sizeY - 1))
-        |> (\( a, b, c ) -> ( linearToSrgb a, linearToSrgb b, linearToSrgb c ))
+{-| Encode an image as a blur hash. The `Image` type is from [`justgook/elm-image`](https://package.elm-lang.org/packages/justgook/elm-image/latest/)
+-}
+fromImage : { width : Int, height : Int } -> Image.Image -> String
+fromImage =
+    Internal.encode
 
 
-getColour : String -> { a | maximumValue : Float } -> Int -> ( Float, Float, Float )
-getColour blurHash { maximumValue } i =
-    if i == 0 then
-        decodeBase83 (blurHash |> String.slice 2 6)
-            |> (\a ->
-                    ( srgbToLinear (a |> Bitwise.shiftRightBy 16)
-                    , srgbToLinear (a |> Bitwise.shiftRightBy 8 |> Bitwise.and 255)
-                    , srgbToLinear (a |> Bitwise.and 255)
-                    )
-               )
+{-| Encode an array of pixel colors as a blur hash
 
-    else
-        decodeBase83 (blurHash |> String.slice (4 + i * 2) (4 + (i + 1) * 2))
-            |> decodeAC maximumValue
+    import Color exposing (Color)
+    import Array exposing (Array)
+
+    pixels : Array Color
+    pixels =
+        Array.initialize 25 (\i -> Color.rgb255 i i i)
+
+    mask : { width : Int, height : Int }
+    mask = { width = 4, height = 4}
+
+    fromPixels mask { rows = 5, columns = 5 } pixels
+        --> "U01fC^t7WB%MIUWBayWBIUWBfQWB%Mj[ayof"
+
+-}
+fromPixels : { width : Int, height : Int } -> { rows : Int, columns : Int } -> Array.Array Color -> String
+fromPixels mask dimensions pixels =
+    Internal.encodeCellGrid mask (CellGrid.CellGrid dimensions pixels)
