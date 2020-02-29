@@ -53,7 +53,8 @@ type Triplet a
 
 {-| Convert a blurhash into an image URI.
 
-The float parameter is the `punch`, used to increase/decrease contrast of the resulting image
+The float parameter is the `punch`, used to increase/decrease contrast of the
+resulting image
 
     punch : Float
     punch =
@@ -79,7 +80,8 @@ toUri { width, height } punch blurhash =
 -}
 toCellGrid : { width : Int, height : Int } -> Float -> String -> CellGrid Color
 toCellGrid { width, height } punch blurhash =
-    CellGrid.CellGrid (Dimensions height width) (Array.fromList (foldGrid width height punch blurhash folderList1d []))
+    CellGrid.CellGrid (Dimensions height width)
+        (Array.fromList (foldGrid width height punch blurhash folderList1d []))
 
 
 
@@ -88,10 +90,18 @@ toCellGrid { width, height } punch blurhash =
 
 {-| Create a list from the image represented by a blurhash
 
-This type is generic so we can generate both a flat list and a 2D list by picking a different folder and default.
+This type is generic so we can generate both a flat list and a 2D list by picking
+a different folder and default.
 
 -}
-foldGrid : Int -> Int -> Float -> String -> ((Int -> Int -> Color) -> Int -> Int -> b -> b) -> b -> b
+foldGrid :
+    Int
+    -> Int
+    -> Float
+    -> String
+    -> ((Int -> Int -> Color) -> Int -> Int -> b -> b)
+    -> b
+    -> b
 foldGrid width height punch blurhash folder default =
     let
         sizeInfo : Int
@@ -374,7 +384,12 @@ folderList1d toValue row column accum =
 
 {-| Build up a 2D list
 -}
-folderList2d : (Int -> Int -> a) -> Int -> Int -> { row : List a, rows : List (List a) } -> { row : List a, rows : List (List a) }
+folderList2d :
+    (Int -> Int -> a)
+    -> Int
+    -> Int
+    -> { row : List a, rows : List (List a) }
+    -> { row : List a, rows : List (List a) }
 folderList2d toValue row column r =
     let
         value =
@@ -388,7 +403,8 @@ folderList2d toValue row column r =
             { row = value :: r.row, rows = r.rows }
 
 
-{-| encode an integer in base 83, the second parameter is the width: the number will be padded with 0's on the left until that length is reached.
+{-| encode an integer in base 83, the second parameter is the width: the number
+will be padded with 0's on the left until that length is reached.
 
     encodeBase83 { padTo = 2 } 4
         --> "04"
@@ -508,7 +524,10 @@ encodeHelp maskSize_ isLinear image =
                 ++ List.foldl (\new accum -> accum ++ encodeBase83 new 2) "" ac_values
 
 
-findComponents : Dimensions -> CellGrid Color -> { components : List { r : Float, g : Float, b : Float }, max_ac_component : Float }
+findComponents :
+    Dimensions
+    -> CellGrid Color
+    -> { components : List { r : Float, g : Float, b : Float }, max_ac_component : Float }
 findComponents dimensions ((CellGrid.CellGrid grid _) as cellgrid) =
     foldDimensionsReversed dimensions
         (\row column { components, max_ac_component } ->
@@ -526,7 +545,9 @@ findComponents dimensions ((CellGrid.CellGrid grid _) as cellgrid) =
             , max_ac_component =
                 if not (row == 0 && column == 0) then
                     max max_ac_component
-                        (max (abs normalized.r) (max (abs normalized.g) (abs normalized.b)))
+                        (max (abs normalized.r)
+                            (max (abs normalized.g) (abs normalized.b))
+                        )
 
                 else
                     max_ac_component
@@ -564,7 +585,9 @@ encodePixel position ((CellGrid.CellGrid dimensions _) as cellgrid) =
                     pos.row
 
                 basis =
-                    norm_factor * cos (pi * toFloat i * toFloat x / toFloat dimensions.columns) * cos (pi * toFloat j * toFloat y / toFloat dimensions.rows)
+                    norm_factor
+                        * cos (pi * toFloat i * toFloat x / toFloat dimensions.columns)
+                        * cos (pi * toFloat j * toFloat y / toFloat dimensions.rows)
 
                 { red, green, blue } =
                     Color.toRgba value

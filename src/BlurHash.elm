@@ -23,7 +23,8 @@ import Image
 import Internal
 
 
-{-| Convert a blurhash into an image URI. The float parameter is the `punch`, used to increase/decrease contrast of the resulting image
+{-| Convert a blurhash into an image URI. The float parameter is the `punch`,
+used to increase/decrease contrast of the resulting image
 
     punch : Float
     punch =
@@ -42,7 +43,8 @@ toUri =
     Internal.toUri
 
 
-{-| Encode an image as a blurhash. The `Image` type is from [`justgook/elm-image`](https://package.elm-lang.org/packages/justgook/elm-image/latest/)
+{-| Encode an image as a blurhash. The `Image` type is from
+[`justgook/elm-image`](https://package.elm-lang.org/packages/justgook/elm-image/latest/)
 -}
 fromImage : { width : Int, height : Int } -> Image.Image -> String
 fromImage =
@@ -66,6 +68,10 @@ fromImage =
         --> "U01fC^t7WB%MIUWBayWBIUWBfQWB%Mj[ayof"
 
 -}
-fromPixels : { width : Int, height : Int } -> { rows : Int, columns : Int } -> Array.Array Color -> String
+fromPixels :
+    { width : Int, height : Int }
+    -> { rows : Int, columns : Int }
+    -> Array.Array Color
+    -> String
 fromPixels mask dimensions pixels =
     Internal.encodeCellGrid mask (CellGrid.CellGrid dimensions pixels)
