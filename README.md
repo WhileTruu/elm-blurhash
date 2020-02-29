@@ -28,4 +28,4 @@ main =
         []
 ```
 
-Just for fun there is also an encoder. May not be the most useful thing right now but who knows.
+An encoder is also included!
