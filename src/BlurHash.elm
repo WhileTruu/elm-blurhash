@@ -1,7 +1,6 @@
 module BlurHash exposing
     ( toUri
     , fromImage, fromPixels
-    , encodeBase83, decodeBase83
     )
 
 {-| Display [blurhash](https://blurha.sh/) in elm
@@ -14,11 +13,6 @@ module BlurHash exposing
 Create a blurhash from an image. Unlikely this is useful, but here it is.
 
 @docs fromImage, fromPixels
-
-
-## Base83
-
-@docs encodeBase83, decodeBase83
 
 -}
 
@@ -46,37 +40,6 @@ import Internal
 toUri : { width : Int, height : Int } -> Float -> String -> String
 toUri =
     Internal.toUri
-
-
-{-| Decode a base83 string
-
-    decodeBase83 "X"
-        --> 33
-
-    decodeBase83 "foo"
-        --> 286649
-
--}
-decodeBase83 : String -> Int
-decodeBase83 =
-    Internal.decodeBase83
-
-
-{-| encode an integer in base 83, the second parameter is the width: the number will be padded with 0's on the left untill that length is reached.
-
-    encodeBase83 { padTo = 2 } 4
-        --> "04"
-
-    encodeBase83 { padTo = 4 } 4
-        --> "0004"
-
-    encodeBase83 { padTo = 4 } 420
-        --> "0055"
-
--}
-encodeBase83 : { padTo : Int } -> Int -> String
-encodeBase83 { padTo } value =
-    Internal.encodeBase83 value padTo
 
 
 {-| Encode an image as a blurhash. The `Image` type is from [`justgook/elm-image`](https://package.elm-lang.org/packages/justgook/elm-image/latest/)

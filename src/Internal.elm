@@ -149,7 +149,14 @@ base83chars =
         |> .dict
 
 
-{-| Decode a base83 string, as used in blurhash, to an integer.
+{-|
+
+    decodeBase83 "X"
+        --> 33
+
+    decodeBase83 "foo"
+        --> 286649
+
 -}
 decodeBase83 : String -> Int
 decodeBase83 str =
@@ -386,7 +393,17 @@ folderList2d toValue row column r =
             { row = value :: r.row, rows = r.rows }
 
 
-{-| encode an integer in base 83, the second parameter is the width: the number will be padded with 0's on the left untill that length is reached.
+{-| encode an integer in base 83, the second parameter is the width: the number will be padded with 0's on the left until that length is reached.
+
+    encodeBase83 { padTo = 2 } 4
+        --> "04"
+
+    encodeBase83 { padTo = 4 } 4
+        --> "0004"
+
+    encodeBase83 { padTo = 4 } 420
+        --> "0055"
+
 -}
 encodeBase83 : Int -> Int -> String
 encodeBase83 value length =
