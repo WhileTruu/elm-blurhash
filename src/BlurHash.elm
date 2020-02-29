@@ -59,7 +59,8 @@ fromImage =
         Array.initialize 25 (\i -> Color.rgb255 i i i)
 
     mask : { width : Int, height : Int }
-    mask = { width = 4, height = 4}
+    mask =
+        { width = 4, height = 4}
 
     fromPixels mask { rows = 5, columns = 5 } pixels
         --> "U01fC^t7WB%MIUWBayWBIUWBfQWB%Mj[ayof"
