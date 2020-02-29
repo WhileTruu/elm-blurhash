@@ -1,4 +1,4 @@
-module TestBlurhash exposing (suite)
+module TestBlurHash exposing (suite)
 
 import CellGrid
 import Color exposing (rgb255)

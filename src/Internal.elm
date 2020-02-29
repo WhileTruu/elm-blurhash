@@ -5,9 +5,9 @@ module Internal exposing
     , encodeBase83, decodeBase83
     )
 
-{-| Display blur hashes in elm
+{-| Display blurhash in elm
 
-    import Blurhash
+    import BlurHash
     import Html exposing (Html)
     import Html.Attributes
 
@@ -15,7 +15,7 @@ module Internal exposing
     main =
         let
             uri =
-                Blurhash.toUri { width = 30, height = 30 }
+                BlurHash.toUri { width = 30, height = 30 }
                     1.0
                     "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
         in
@@ -63,7 +63,7 @@ The float parameter is the `punch`, used to increase/decrease contrast of the re
     hash =
         "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
 
-    Blurhash.toUri { width = 4, height = 4 } punch hash
+    BlurHash.toUri { width = 4, height = 4 } punch hash
     --> "data:image/bmp;base64,Qk2KAAAAAAAAAHoAAABsAAAAAgAAAAIAAAABACAAAwAAABAAAAATCwAAEwsAAAAAAAAAAAAAAAAA/wAA/wAA/wAA/wAAAFdpbiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/XY3A/z9+w/9djcD/P37D"
 
 -}
@@ -128,7 +128,7 @@ foldGrid width height punch blurhash folder default =
 
 
 
--- Phase 2: decoding the blur hash into a function `Int -> Triplet Float`
+-- Phase 2: decoding the blurhash into a function `Int -> Triplet Float`
 
 
 alphabet : String

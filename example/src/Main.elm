@@ -1,6 +1,6 @@
 module Main exposing (main)
 
-import Blurhash
+import BlurHash
 import Browser
 import Html exposing (Html)
 import Html.Attributes
@@ -8,7 +8,7 @@ import Html.Attributes
 
 uri : String
 uri =
-    Blurhash.toUri { width = 30, height = 30 } 1.0 "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
+    BlurHash.toUri { width = 30, height = 30 } 1.0 "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
 
 
 view : Html msg

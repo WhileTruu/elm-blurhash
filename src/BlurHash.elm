@@ -1,10 +1,10 @@
-module Blurhash exposing
+module BlurHash exposing
     ( toUri
     , fromImage, fromPixels
     , encodeBase83, decodeBase83
     )
 
-{-| Display blur hashes in elm
+{-| Display [blurhash](https://blurha.sh/) in elm
 
 @docs toUri
 
@@ -39,10 +39,8 @@ import Internal
     hash =
         "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
 
-    Blurhash.toUri { width = 4, height = 4 } punch hash
+    BlurHash.toUri { width = 4, height = 4 } punch hash
     -->  "data:image/bmp;base64,Qk26AAAAAAAAAHoAAABsAAAABAAAAAQAAAABACAAAwAAAEAAAAATCwAAEwsAAAAAAAAAAAAAAAAA/wAA/wAA/wAA/wAAAFdpbiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/WovA/0F+wv87fs3/UIXI/12Lxf85eMH/Q4DT/1iK0f9djrr/TYGy/0Z/uf9RhMD/UYWu/1OHr/9Bfqn/T4Gv"
-
-"
 
 -}
 toUri : { width : Int, height : Int } -> Float -> String -> String
@@ -81,14 +79,14 @@ encodeBase83 { padTo } value =
     Internal.encodeBase83 value padTo
 
 
-{-| Encode an image as a blur hash. The `Image` type is from [`justgook/elm-image`](https://package.elm-lang.org/packages/justgook/elm-image/latest/)
+{-| Encode an image as a blurhash. The `Image` type is from [`justgook/elm-image`](https://package.elm-lang.org/packages/justgook/elm-image/latest/)
 -}
 fromImage : { width : Int, height : Int } -> Image.Image -> String
 fromImage =
     Internal.encode
 
 
-{-| Encode an array of pixel colors as a blur hash
+{-| Encode an array of pixel colors as a blurhash
 
     import Color exposing (Color)
     import Array exposing (Array)

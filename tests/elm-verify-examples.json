@@ -1,4 +1,4 @@
 {
   "root": "../src",
-  "tests": ["Blurhash", "README.md"]
+  "tests": ["BlurHash", "README.md"]
 }
