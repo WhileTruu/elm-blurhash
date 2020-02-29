@@ -5,7 +5,7 @@ module Internal exposing
     , encodeBase83, decodeBase83
     )
 
-{-| Display blurhash in elm
+{-| Display blurhash
 
     import BlurHash
     import Html exposing (Html)
@@ -327,11 +327,6 @@ linearToSrgb linearFloat =
 
 
 -- Efficient folding over all positions in a grid
-
-
-decode : Int -> Int -> Float -> String -> List Color
-decode width height punch blurhash =
-    foldGrid width height punch blurhash folderList1d []
 
 
 {-| Fold from the top-left to the bottom-right. Useful for building up arrays

@@ -3,7 +3,7 @@ module BlurHash exposing
     , fromImage, fromPixels
     )
 
-{-| Display [blurhash](https://blurha.sh/) in elm
+{-| Display [blurhash](https://blurha.sh/)
 
 @docs toUri
 
