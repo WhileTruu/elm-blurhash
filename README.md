@@ -29,3 +29,9 @@ main =
 ```
 
 An encoder is also included!
+
+## Demo
+
+[Webpage](https://whiletruu.github.io/elm-blurhash/)
+
+[Code](https://github.com/WhileTruu/elm-blurhash/tree/publish-package/example)
