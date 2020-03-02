@@ -1,7 +1,7 @@
 module Internal exposing
     ( toUri
     , toCellGrid
-    , encode, encodeCellGrid, encodeHelp
+    , encodeCellGrid, encodeHelp
     , encodeBase83, decodeBase83
     )
 
@@ -435,21 +435,6 @@ encodeBase83 value length =
 
 {-| Encode an image
 -}
-encode : { width : Int, height : Int } -> Image.Image -> String
-encode maskSize image =
-    case Image.toList2d image of
-        first :: rest ->
-            let
-                dimensions =
-                    { rows = 1 + List.length rest, columns = List.length first }
-            in
-            CellGrid.CellGrid dimensions (Image.Color.toArray image)
-                |> encodeHelp maskSize False
-
-        _ ->
-            ""
-
-
 encodeCellGrid : { width : Int, height : Int } -> CellGrid Color -> String
 encodeCellGrid mask grid =
     encodeHelp mask False grid

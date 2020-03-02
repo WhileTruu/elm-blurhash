@@ -1,6 +1,6 @@
 module BlurHash exposing
     ( toUri
-    , fromImage, fromPixels
+    , fromPixels
     )
 
 {-| Display [blurhash](https://blurha.sh/)
@@ -10,16 +10,13 @@ module BlurHash exposing
 
 ## Encoding
 
-Create a blurhash from an image. Unlikely this is useful, but here it is.
-
-@docs fromImage, fromPixels
+@docs fromPixels
 
 -}
 
 import Array
 import CellGrid exposing (CellGrid)
 import Color exposing (Color)
-import Image
 import Internal
 
 
@@ -41,14 +38,6 @@ used to increase/decrease contrast of the resulting image
 toUri : { width : Int, height : Int } -> Float -> String -> String
 toUri =
     Internal.toUri
-
-
-{-| Encode an image as a blurhash. The `Image` type is from
-[`justgook/elm-image`](https://package.elm-lang.org/packages/justgook/elm-image/latest/)
--}
-fromImage : { width : Int, height : Int } -> Image.Image -> String
-fromImage =
-    Internal.encode
 
 
 {-| Encode an array of pixel colors as a blurhash
