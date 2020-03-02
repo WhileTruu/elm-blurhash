@@ -29,10 +29,10 @@ used to increase/decrease contrast of the resulting image
 
     hash : String
     hash =
-        "UBL_:rOpGG-oBUNG,qRj2so|=eE1w^n4S5NH"
+        "LGFFaXYk^6#M@-5c,1J5@[or[Q6."
 
-    BlurHash.toUri { width = 4, height = 4 } punch hash
-    -->  "data:image/bmp;base64,Qk26AAAAAAAAAHoAAABsAAAABAAAAAQAAAABACAAAwAAAEAAAAATCwAAEwsAAAAAAAAAAAAAAAAA/wAA/wAA/wAA/wAAAFdpbiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/WovA/0F+wv87fs3/UIXI/12Lxf85eMH/Q4DT/1iK0f9djrr/TYGy/0Z/uf9RhMD/UYWu/1OHr/9Bfqn/T4Gv"
+    BlurHash.toUri { width = 3, height = 3 } punch hash
+    -->  "data:image/bmp;base64,Qk1aAAAAAAAAADYAAAAoAAAAAwAAAAMAAAABABgAAAAAACQAAAATCwAAEwsAAAAAAAAAAAAAmp6Rr5BTZXaAAAAAsoyUvoRlY22PAAAAo3etuXWZiliIAAAA"
 
 -}
 toUri : { width : Int, height : Int } -> Float -> String -> String
@@ -51,7 +51,7 @@ toUri =
 
     mask : { width : Int, height : Int }
     mask =
-        { width = 4, height = 4}
+        { width = 4, height = 4 }
 
     fromPixels mask { rows = 5, columns = 5 } pixels
         --> "U01fC^t7WB%MIUWBayWBIUWBfQWB%Mj[ayof"
